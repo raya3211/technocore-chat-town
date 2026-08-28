@@ -164,7 +164,7 @@ html, body {
   bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  max-width: 160px;
+  max-width: 130px;
   min-width: 40px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -177,6 +177,18 @@ html, body {
   word-break: break-word;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
   animation: bubble-in 0.15s ease;
+}
+
+.bubble.truncatable {
+  cursor: pointer;
+}
+
+.bubble.expanded {
+  max-width: 240px;
+  max-height: 140px;
+  overflow-y: auto;
+  text-align: left;
+  cursor: pointer;
 }
 
 .bubble::after {

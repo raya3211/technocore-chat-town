@@ -3,6 +3,7 @@
   const POLL_INTERVAL_MS = 2500;
   const MAX_CHARACTERS = 24;
   const BUBBLE_DURATION_MS = 6000;
+  const BUBBLE_TRUNCATE_LENGTH = 60;
   const IDLE_MIN_MS = 2500;
   const IDLE_MAX_MS = 6000;
   const WALK_SPEED_PCT_PER_SEC = 12; // room-width percent per second
@@ -58,10 +59,9 @@
       <div class="label">${escapeHtml(shortLabel(from))}</div>
     `;
 
-    wrapper.addEventListener("click", () => {
-      const c = characters.get(from);
-      if (!c) return;
-      showBubble(from, `(${shortLabel(from)}) click again to dismiss`, 2500);
+    wrapper.addEventListener("click", (e) => {
+      // clicks on the bubble itself are handled separately (expand/collapse)
+      if (e.target.closest(".bubble")) return;
     });
 
     roomEl.appendChild(wrapper);
@@ -114,12 +114,22 @@
     }, duration * 1000);
   }
 
+  function truncatedText(fullText) {
+    return fullText.length > BUBBLE_TRUNCATE_LENGTH
+      ? fullText.slice(0, BUBBLE_TRUNCATE_LENGTH).trimEnd() + "…"
+      : fullText;
+  }
+
   function showBubble(from, text, durationOverride) {
     const record = characters.get(from);
     if (!record) return;
 
     const bubbleEl = record.el.querySelector(".bubble");
-    bubbleEl.textContent = text;
+    bubbleEl.dataset.fullText = text;
+    bubbleEl.dataset.expanded = "false";
+    bubbleEl.textContent = truncatedText(text);
+    bubbleEl.classList.toggle("truncatable", text.length > BUBBLE_TRUNCATE_LENGTH);
+    bubbleEl.classList.remove("expanded");
     bubbleEl.hidden = false;
     record.el.classList.add("talking");
 
@@ -129,6 +139,41 @@
       record.el.classList.remove("talking");
     }, durationOverride ?? BUBBLE_DURATION_MS);
   }
+
+  // clicking a (truncated) bubble expands it to the full message, and
+  // pauses the auto-hide timer while it's open; clicking again collapses
+  // it and resumes the countdown
+  roomEl.addEventListener("click", (e) => {
+    const bubbleEl = e.target.closest(".bubble");
+    if (!bubbleEl || bubbleEl.hidden) return;
+    e.stopPropagation();
+
+    const wrapper = bubbleEl.closest(".character");
+    const from = wrapper?.dataset.id;
+    const record = from ? characters.get(from) : null;
+    const fullText = bubbleEl.dataset.fullText || "";
+    const isExpanded = bubbleEl.dataset.expanded === "true";
+
+    if (isExpanded) {
+      bubbleEl.dataset.expanded = "false";
+      bubbleEl.textContent = truncatedText(fullText);
+      bubbleEl.classList.remove("expanded");
+      if (record) {
+        record.bubbleTimer = setTimeout(() => {
+          bubbleEl.hidden = true;
+          record.el.classList.remove("talking");
+        }, BUBBLE_DURATION_MS);
+      }
+    } else {
+      bubbleEl.dataset.expanded = "true";
+      bubbleEl.textContent = fullText;
+      bubbleEl.classList.add("expanded");
+      if (record?.bubbleTimer) {
+        clearTimeout(record.bubbleTimer);
+        record.bubbleTimer = null; // stay open until clicked again
+      }
+    }
+  });
 
   function pruneOldest() {
     if (characters.size <= MAX_CHARACTERS) return;
@@ -216,7 +261,7 @@
         record.lastActive = Date.now();
         pruneOldest();
 
-        showBubble(from, String(msg.text ?? "").slice(0, 140));
+        showBubble(from, String(msg.text ?? "").slice(0, 500));
         appendLog(msg, verified);
         recentTimestamps.push(Date.now());
       }
