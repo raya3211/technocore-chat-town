@@ -1,240 +1,341 @@
 (() => {
-  const ROOM = "lobby";
-  const POLL_INTERVAL_MS = 2500;
-  const MAX_CHARACTERS = 24;
-  const BUBBLE_DURATION_MS = 6000;
-  const IDLE_MIN_MS = 2500;
-  const IDLE_MAX_MS = 6000;
-  const WALK_SPEED_PCT_PER_SEC = 12; // room-width percent per second
+  const STORAGE = "pixel-chat-v1";
+  const COLORS = [
+    { shirt: "#4a90d9", pants: "#2c3e50", hair: "#3d2914", skin: "#f0c8a0", cape: "transparent" },
+    { shirt: "#e74c3c", pants: "#1a1a2e", hair: "#1a0a00", skin: "#e8b898", cape: "#c0392b" },
+    { shirt: "#2ecc71", pants: "#1e3a2f", hair: "#5c4033", skin: "#f5d0a9", cape: "transparent" },
+    { shirt: "#9b59b6", pants: "#2c1a3a", hair: "#f5c542", skin: "#f0c8a0", cape: "#8e44ad" },
+    { shirt: "#f39c12", pants: "#3d2914", hair: "#fff3d0", skin: "#ddb892", cape: "transparent" },
+    { shirt: "#1abc9c", pants: "#0e3d38", hair: "#2c1810", skin: "#c4a574", cape: "#16a085" },
+    { shirt: "#3498db", pants: "#1a2740", hair: "#8b4513", skin: "#f5cba7", cape: "transparent" },
+    { shirt: "#e91e63", pants: "#2a1020", hair: "#4a2080", skin: "#f0c8a0", cape: "#ff6b9d" },
+  ];
 
-  const roomEl = document.getElementById("room");
-  const roomEmptyEl = document.getElementById("room-empty");
-  const statusDot = document.getElementById("status-dot");
-  const statusText = document.getElementById("status-text");
-  const popCount = document.getElementById("pop-count");
-  const rateText = document.getElementById("rate-text");
-  const verifiedOnlyToggle = document.getElementById("verified-only-toggle");
-  const logEl = document.getElementById("log");
-  const logToggle = document.getElementById("log-toggle");
-  const logSection = document.querySelector(".log-section");
+  const state = {
+    room: "lobby",
+    nick: "",
+    colorIdx: 0,
+    joined: false,
+    actors: new Map(), // key -> { key, label, colorIdx, x, facing, el, bubbleTimer, targetX }
+    lastSeq: null,
+    messages: [],
+  };
 
-  const { buildAvatarSvg, randomX, ROOM_MIN_PCT, ROOM_MAX_PCT } =
-    window.TechnocoreCharacters;
+  let pollTimer = null;
+  let walkTimer = null;
 
-  /** @type {Map<string, { el: HTMLElement, verified: boolean, x: number, lastActive: number, wanderTimer: number|null, bubbleTimer: number|null }>} */
-  const characters = new Map();
+  function toast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      el.hidden = true;
+    }, 2200);
+  }
 
-  let sinceSeq = null;
-  let inFlight = false;
-  let recentTimestamps = [];
-  let verifiedOnly = false;
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  function actorKey(from) {
+    return String(from || "anon").slice(0, 64);
+  }
+
+  function labelOf(from) {
+    const s = String(from || "");
+    if (s.startsWith("did:key:")) {
+      const k = s.replace(/^did:key:/, "");
+      return k.length > 10 ? k.slice(0, 4) + "…" + k.slice(-3) : k;
+    }
+    return s.slice(0, 12) || "anon";
+  }
+
+  function colorFor(key, preferredIdx) {
+    if (typeof preferredIdx === "number" && preferredIdx >= 0) {
+      return preferredIdx % COLORS.length;
+    }
+    return hashStr(key) % COLORS.length;
+  }
+
+  function ensureActor(key, label, preferredColor) {
+    if (state.actors.has(key)) {
+      const a = state.actors.get(key);
+      if (label && a.label !== label) {
+        a.label = label;
+        const lab = a.el.querySelector(".char-label");
+        if (lab) lab.textContent = label;
+      }
+      return a;
+    }
+
+    const stage = document.getElementById("stage");
+    const idx = colorFor(key, preferredColor);
+    const palette = COLORS[idx];
+    const x = 8 + (hashStr(key + "x") % 80);
+
+    const el = document.createElement("div");
+    el.className = "char";
+    el.style.left = x + "%";
+    el.innerHTML = `
+      <div class="bubble" aria-hidden="true"><span class="bubble-text"></span></div>
+      <div class="char-body">
+        <div class="sprite" style="--shirt:${palette.shirt};--pants:${palette.pants};--hair:${palette.hair};--skin:${palette.skin};--accent-cape:${palette.cape}">
+          <div class="hair"></div>
+          <div class="head"></div>
+          <div class="cape"></div>
+          <div class="torso"></div>
+          <div class="legs"></div>
+        </div>
+      </div>
+      <div class="char-label">${escapeHtml(label || labelOf(key))}</div>
+    `;
+    stage.appendChild(el);
+
+    const actor = {
+      key,
+      label: label || labelOf(key),
+      colorIdx: idx,
+      x,
+      facing: 1,
+      el,
+      bubbleTimer: null,
+      targetX: x,
+    };
+    state.actors.set(key, actor);
+    return actor;
+  }
 
   function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
-  function shortLabel(from) {
-    if (from.startsWith("did:key:")) {
-      const key = from.slice("did:key:".length);
-      return key.length > 8 ? `${key.slice(0, 4)}…${key.slice(-4)}` : key;
+  function showBubble(actor, text) {
+    const bubble = actor.el.querySelector(".bubble");
+    const span = bubble.querySelector(".bubble-text");
+    span.textContent = String(text).slice(0, 80);
+    bubble.classList.add("show");
+    actor.el.classList.add("speaking");
+    clearTimeout(actor.bubbleTimer);
+    actor.bubbleTimer = setTimeout(() => {
+      bubble.classList.remove("show");
+      actor.el.classList.remove("speaking");
+    }, 4500);
+  }
+
+  function wander() {
+    for (const actor of state.actors.values()) {
+      // gentle random walk
+      if (Math.random() > 0.55) continue;
+      const delta = (Math.random() * 18 - 9);
+      let next = actor.x + delta;
+      next = Math.max(2, Math.min(92, next));
+      actor.facing = next >= actor.x ? 1 : -1;
+      actor.el.classList.toggle("facing-left", actor.facing < 0);
+      actor.x = next;
+      actor.el.style.left = next + "%";
     }
-    return from;
   }
 
-  // ---------- character lifecycle ----------
+  function setStatus(text, ok) {
+    const el = document.getElementById("status");
+    el.textContent = text;
+    el.style.color = ok ? "var(--accent)" : "var(--muted)";
+  }
 
-  function spawnCharacter(from) {
-    const verified = from.startsWith("did:key:");
-    const x = randomX();
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "character";
-    wrapper.style.left = `${x}%`;
-    wrapper.dataset.id = from;
-
-    wrapper.innerHTML = `
-      <div class="bubble" hidden></div>
-      <div class="sprite">${buildAvatarSvg(from, verified)}</div>
-      <div class="label">${escapeHtml(shortLabel(from))}</div>
-    `;
-
-    wrapper.addEventListener("click", () => {
-      const c = characters.get(from);
-      if (!c) return;
-      showBubble(from, `(${shortLabel(from)}) click again to dismiss`, 2500);
-    });
-
-    roomEl.appendChild(wrapper);
-    roomEmptyEl.hidden = true;
-
-    const record = {
-      el: wrapper,
-      verified,
-      x,
-      lastActive: Date.now(),
-      wanderTimer: null,
-      bubbleTimer: null,
+  function normalizeMsg(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const from = raw.from || raw.did || raw.author || raw.nick || "";
+    const text = raw.text ?? raw.body ?? raw.message ?? "";
+    if (!from && !text) return null;
+    return {
+      seq: raw.seq ?? raw.id ?? (Date.parse(raw.ts || "") || Date.now()),
+      ts: raw.ts || raw.time || new Date().toISOString(),
+      from: String(from),
+      text: String(text),
     };
-    characters.set(from, record);
-    scheduleWander(from);
-    applyVerifiedFilter(record);
-    return record;
   }
 
-  function ensureCharacter(from) {
-    return characters.get(from) || spawnCharacter(from);
-  }
+  async function fetchLobby() {
+    const params = new URLSearchParams({
+      room: state.room,
+      limit: "80",
+    });
+    const res = await fetch(`/api/lobby?${params}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = JSON.parse(await res.text());
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (data?.messages) list = data.messages;
+    else if (data?.rows) list = data.rows;
 
-  function scheduleWander(from) {
-    const record = characters.get(from);
-    if (!record) return;
-    if (record.wanderTimer) clearTimeout(record.wanderTimer);
+    const msgs = list.map(normalizeMsg).filter(Boolean);
+    msgs.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0));
 
-    const delay = IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS);
-    record.wanderTimer = setTimeout(() => wanderTo(from, randomX()), delay);
-  }
-
-  function wanderTo(from, targetX) {
-    const record = characters.get(from);
-    if (!record) return;
-
-    const distance = Math.abs(targetX - record.x);
-    const duration = Math.max(0.4, distance / WALK_SPEED_PCT_PER_SEC);
-    const facingLeft = targetX < record.x;
-
-    record.el.style.transition = `left ${duration}s linear`;
-    record.el.style.left = `${targetX}%`;
-    record.el.classList.add("walking");
-    record.el.classList.toggle("facing-left", facingLeft);
-    record.x = targetX;
-
-    setTimeout(() => {
-      record.el.classList.remove("walking");
-      scheduleWander(from);
-    }, duration * 1000);
-  }
-
-  function showBubble(from, text, durationOverride) {
-    const record = characters.get(from);
-    if (!record) return;
-
-    const bubbleEl = record.el.querySelector(".bubble");
-    bubbleEl.textContent = text;
-    bubbleEl.hidden = false;
-    record.el.classList.add("talking");
-
-    if (record.bubbleTimer) clearTimeout(record.bubbleTimer);
-    record.bubbleTimer = setTimeout(() => {
-      bubbleEl.hidden = true;
-      record.el.classList.remove("talking");
-    }, durationOverride ?? BUBBLE_DURATION_MS);
-  }
-
-  function pruneOldest() {
-    if (characters.size <= MAX_CHARACTERS) return;
-    let oldestId = null;
-    let oldestTime = Infinity;
-    for (const [id, record] of characters) {
-      if (record.lastActive < oldestTime) {
-        oldestTime = record.lastActive;
-        oldestId = id;
+    const seen = new Set(state.messages.map((m) => `${m.seq}:${m.from}:${m.text}`));
+    const fresh = [];
+    for (const m of msgs) {
+      const k = `${m.seq}:${m.from}:${m.text}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        fresh.push(m);
       }
     }
-    if (oldestId) despawn(oldestId);
+
+    // full replace on first load for actors, only bubble fresh
+    if (!state.messages.length && msgs.length) {
+      state.messages = msgs.slice(-40);
+      for (const m of state.messages) {
+        const key = actorKey(m.from);
+        const actor = ensureActor(key, labelOf(m.from));
+        // show only last message per actor on first paint
+      }
+      const lastByActor = new Map();
+      for (const m of state.messages) lastByActor.set(actorKey(m.from), m);
+      for (const m of lastByActor.values()) {
+        const actor = ensureActor(actorKey(m.from), labelOf(m.from));
+        showBubble(actor, m.text);
+      }
+    } else {
+      for (const m of fresh) {
+        state.messages.push(m);
+        const actor = ensureActor(actorKey(m.from), labelOf(m.from));
+        showBubble(actor, m.text);
+        // hop toward center a bit when speaking
+        const hop = actor.x + (Math.random() * 6 - 3);
+        actor.x = Math.max(2, Math.min(92, hop));
+        actor.el.style.left = actor.x + "%";
+      }
+      if (state.messages.length > 100) state.messages = state.messages.slice(-80);
+    }
+    setStatus(`live · #${state.room}`, true);
   }
-
-  function despawn(from) {
-    const record = characters.get(from);
-    if (!record) return;
-    if (record.wanderTimer) clearTimeout(record.wanderTimer);
-    if (record.bubbleTimer) clearTimeout(record.bubbleTimer);
-    record.el.classList.add("despawning");
-    setTimeout(() => record.el.remove(), 400);
-    characters.delete(from);
-  }
-
-  function applyVerifiedFilter(record) {
-    record.el.classList.toggle("hidden-by-filter", verifiedOnly && !record.verified);
-  }
-
-  verifiedOnlyToggle.addEventListener("change", () => {
-    verifiedOnly = verifiedOnlyToggle.checked;
-    for (const record of characters.values()) applyVerifiedFilter(record);
-  });
-
-  // ---------- text log ----------
-
-  function appendLog(msg, verified) {
-    const line = document.createElement("div");
-    line.className = "log-line";
-    line.innerHTML = `<span class="log-id ${verified ? "verified" : "human"}">${escapeHtml(
-      shortLabel(msg.from)
-    )}</span><span class="log-text">${escapeHtml(String(msg.text ?? ""))}</span>`;
-    logEl.appendChild(line);
-    while (logEl.children.length > 200) logEl.firstChild.remove();
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  logToggle.addEventListener("click", () => {
-    const collapsed = logSection.classList.toggle("collapsed");
-    logToggle.textContent = collapsed ? "Show" : "Hide";
-  });
-
-  // ---------- rate calc ----------
-
-  function updateRate() {
-    const now = Date.now();
-    recentTimestamps = recentTimestamps.filter((t) => now - t < 60000);
-    rateText.textContent = `${recentTimestamps.length} msgs/min`;
-  }
-
-  // ---------- polling ----------
 
   async function poll() {
-    if (inFlight) return;
-    inFlight = true;
-
-    const params = new URLSearchParams({ room: ROOM, limit: "200" });
-    if (sinceSeq !== null) params.set("since", String(sinceSeq));
-
     try {
-      const res = await fetch(`/api/lobby?${params.toString()}`);
-      if (!res.ok) throw new Error(`upstream ${res.status}`);
-      const data = await res.json();
-
-      statusDot.className = "status-dot live";
-      statusText.textContent = "live";
-
-      const messages = Array.isArray(data.messages) ? data.messages : [];
-
-      for (const msg of messages) {
-        const from = typeof msg.from === "string" ? msg.from : null;
-        if (!from) continue;
-
-        const verified = from.startsWith("did:key:");
-        const record = ensureCharacter(from);
-        record.lastActive = Date.now();
-        pruneOldest();
-
-        showBubble(from, String(msg.text ?? "").slice(0, 140));
-        appendLog(msg, verified);
-        recentTimestamps.push(Date.now());
-      }
-
-      if (messages.length) {
-        sinceSeq = data.last_seq ?? sinceSeq;
-      }
-
-      popCount.textContent = `${characters.size} character${characters.size === 1 ? "" : "s"}`;
-      updateRate();
-    } catch (err) {
-      statusDot.className = "status-dot error";
-      statusText.textContent = "retrying…";
-    } finally {
-      inFlight = false;
+      await fetchLobby();
+    } catch (e) {
+      setStatus("reconnect…", false);
     }
   }
 
-  setInterval(poll, POLL_INTERVAL_MS);
+  async function sendMessage(text) {
+    const nick = state.nick
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "")
+      .slice(0, 20);
+    if (!nick) throw new Error("Bad nickname");
+    const params = new URLSearchParams({
+      room: state.room,
+      nick,
+      text: text.slice(0, 200),
+    });
+    const res = await fetch(`/api/guest-say?${params}`);
+    if (!res.ok) {
+      const body = await res.text();
+      if (/room limit/i.test(body)) {
+        throw new Error("Room limit — try an existing room like lobby");
+      }
+      throw new Error(body || `HTTP ${res.status}`);
+    }
+    // optimistic
+    const key = actorKey(nick);
+    const actor = ensureActor(key, nick, state.colorIdx);
+    showBubble(actor, text);
+  }
+
+  /* UI */
+  function buildPalette() {
+    const root = document.getElementById("palette");
+    root.innerHTML = COLORS.map(
+      (c, i) =>
+        `<button type="button" class="swatch ${i === state.colorIdx ? "active" : ""}" data-i="${i}" style="background:${c.shirt}" title="Look ${i + 1}"></button>`,
+    ).join("");
+  }
+
+  document.getElementById("palette").addEventListener("click", (e) => {
+    const s = e.target.closest("[data-i]");
+    if (!s) return;
+    state.colorIdx = Number(s.dataset.i);
+    buildPalette();
+  });
+
+  document.getElementById("btn-join").addEventListener("click", () => {
+    const raw = document.getElementById("nick").value.trim();
+    const nick = raw.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20);
+    if (!nick) {
+      toast("Enter a nickname");
+      return;
+    }
+    state.nick = nick;
+    state.joined = true;
+    localStorage.setItem(
+      STORAGE,
+      JSON.stringify({ nick, colorIdx: state.colorIdx, room: state.room }),
+    );
+    document.getElementById("join-overlay").classList.add("hidden");
+    document.getElementById("msg").disabled = false;
+    document.getElementById("btn-send").disabled = false;
+    document.getElementById("who").textContent = `@${nick}`;
+    ensureActor(actorKey(nick), nick, state.colorIdx);
+    toast("You walked in");
+  });
+
+  document.getElementById("btn-join-room").addEventListener("click", () => {
+    const room = document
+      .getElementById("room")
+      .value.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "")
+      .slice(0, 48);
+    if (!room) return;
+    state.room = room;
+    state.messages = [];
+    // clear actors except self
+    const stage = document.getElementById("stage");
+    for (const [k, a] of [...state.actors]) {
+      if (state.joined && k === actorKey(state.nick)) continue;
+      a.el.remove();
+      state.actors.delete(k);
+    }
+    if (state.joined) ensureActor(actorKey(state.nick), state.nick, state.colorIdx);
+    poll();
+  });
+
+  document.getElementById("compose").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("msg");
+    const text = input.value.trim();
+    if (!text || !state.joined) return;
+    input.value = "";
+    try {
+      await sendMessage(text);
+    } catch (err) {
+      toast(err.message || "Send failed");
+    }
+  });
+
+  // boot
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE) || "null");
+    if (saved?.nick) {
+      document.getElementById("nick").value = saved.nick;
+      state.colorIdx = saved.colorIdx || 0;
+      if (saved.room) {
+        state.room = saved.room;
+        document.getElementById("room").value = saved.room;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  buildPalette();
   poll();
+  pollTimer = setInterval(poll, 2800);
+  walkTimer = setInterval(wander, 2200);
 })();

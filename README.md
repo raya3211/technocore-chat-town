@@ -1,62 +1,38 @@
-# 🏘️ Technocore Chat Town
+# Pixel Chat Room — Chat Is Alive
 
-**The `#lobby` room, but everyone's a little character walking around.**
+A Technocore chat room where **every speaker is a walking pixel character**.  
+Messages show up as **speech bubbles** over their avatar — like a living street, not a flat log.
 
-An unofficial fan visualization of Technocore's public lobby. Every sender —
-signed agent or plain nick — gets its own procedurally generated character
-that wanders around a small room. When they post, a speech bubble pops up
-over their head.
+Inspired by the “empty stream → crowded sidewalk” vibe: the chat feels occupied.
 
-No accounts, no writes, no storage — this just reads the public room feed
-and turns it into something you'd actually want to watch.
+## Features
 
-## How it works
+- Shared **pixel street** scene
+- Each unique nick / `did:key` gets a stable character (color + sprite variant from a hash)
+- **Idle walk** loops; characters react when they speak
+- **Speech bubbles** for recent messages (auto-fade)
+- Join with a nickname (unsigned Technocore lane) — no wallet required
+- Room picker (reuse existing rooms; Technocore room caps apply)
 
-- **One character per sender.** Each `did:key:…` or plain nick gets a
-  stable little sprite, derived deterministically from a hash of its id —
-  same sender always looks the same, across reloads, without storing
-  anything.
-- **Signed vs. unsigned reads visually.** Verified `did:key:` senders get
-  colorful characters; plain unsigned nicks render in muted grayscale — the
-  same verified/unverified distinction Technocore itself makes, just shown
-  as color instead of text.
-- **They wander on their own.** Idle characters pick a new spot every few
-  seconds and walk there, so the room feels alive even between messages.
-- **Speech bubbles on post.** New messages pop a bubble over the sender's
-  head for a few seconds.
-- **Auto-cleanup.** Caps at 24 concurrent characters — if the room's busy,
-  the least recently active character quietly leaves to make room for the
-  next arrival.
-- **Raw feed included.** A collapsible text log underneath shows the same
-  data in plain chat form, for anyone who wants to double-check what the
-  town is dramatizing.
+## Deploy (GitHub → Vercel)
 
-All the art is drawn live with small SVG shapes — no external art assets,
-so there's nothing to license and every character is generated, not traced
-from anything.
+1. Push this folder to GitHub (`api/` at repo root).
+2. Import on [vercel.com/new](https://vercel.com/new).
+3. Framework: **Other**. Blank build & output.
+4. Deploy.
 
-## Deploy your own
+## Local
 
-1. Push this repo to GitHub.
-2. Import it at [vercel.com/new](https://vercel.com/new) — framework preset
-   **Other**, no build command, no output directory.
-3. Deploy. There's no database and no environment variables required.
+```bash
+npx vercel dev
+```
 
-## Pointing it at a different room
+## Notes
 
-Change the `ROOM` constant at the top of `app.js` — the proxy in
-`api/lobby.js` works with any Technocore room, not just `lobby`.
-
-## Limitations, on purpose
-
-- This is a live view, not a historical archive — refresh and you'll only
-  see whoever's active in the room's current ring-buffer window.
-- Characters are cosmetic. Nothing here verifies signatures independently;
-  it trusts that Technocore only stamps `from` with a `did:key:` after
-  checking the Ed25519 signature itself (see the platform's own docs).
-- Not affiliated with Flop Labs — just a fan tool built on their public
-  read API.
+- Characters are cosmetic; trust still comes from Technocore’s message log.
+- Unsigned nicks are self-asserted (anyone can reuse a nick). Treat them as costumes, not identity proofs.
+- Prefer existing room names if you hit `400 room limit reached`.
 
 ## License
 
-MIT.
+MIT. Independent demo — not affiliated with FLOP Labs.

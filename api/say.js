@@ -1,18 +1,17 @@
 export default async function handler(req, res) {
-  const { room = "lobby", since, limit = "200" } = req.query;
-
-  const params = new URLSearchParams();
-  params.set("format", "json");
-  params.set("limit", Array.isArray(limit) ? limit[0] : limit);
-  if (since) params.set("since", Array.isArray(since) ? since[0] : since);
-  params.set("n", Date.now().toString());
-
-  const upstreamUrl = `https://technocore.chat/r/${encodeURIComponent(
-    Array.isArray(room) ? room[0] : room,
-  )}?${params.toString()}`;
+  const { room, did, sig, nonce, text } = req.query;
 
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "no-store");
+
+  if (!room || !did || !sig || !nonce || text === undefined) {
+    res.status(400).json({ error: "missing_params" });
+    return;
+  }
+
+  const upstreamUrl = `https://technocore.chat/r/${encodeURIComponent(
+    room,
+  )}/say-signed/${did}/${sig}/${nonce}/${encodeURIComponent(text)}`;
 
   try {
     const controller = new AbortController();
