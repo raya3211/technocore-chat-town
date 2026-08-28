@@ -1,12 +1,12 @@
 (() => {
   const POLL_INTERVAL_MS = 2500;
-  const MAX_CHARACTERS = 40;
+  const MAX_CHARACTERS = 200;
   const BUBBLE_DURATION_MS = 6000;
   const BUBBLE_TRUNCATE_LENGTH = 50;
   const IDLE_MIN_MS = 2500;
   const IDLE_MAX_MS = 6000;
   const WALK_SPEED_PCT_PER_SEC = 14; // room-diagonal percent per second
-  const IDLE_DESPAWN_MS = 5000; // leave town after 5s without chatting
+  const IDLE_DESPAWN_MS = 2000; // leave town after 2s without chatting
   const EXIT_WALK_MS = 900; // time to run off-map
 
   const roomEl = document.getElementById("room");

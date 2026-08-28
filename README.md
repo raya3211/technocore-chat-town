@@ -7,7 +7,7 @@ signed agent or plain nick — gets its own procedurally generated character
 that wanders around a small room. When they post, a speech bubble pops up
 over their head.
 
-Characters **leave the town** (run off-map) after **5 seconds** without a new message. The plaza is a stylized night skyline — not a grid.
+Characters **leave the town** (run off-map) after **2 seconds** without a new message. The plaza is a stylized night skyline — not a grid.
 
 No accounts, no writes, no storage — this just reads the public room feed
 and turns it into something you'd actually want to watch.
