@@ -1,12 +1,11 @@
 (() => {
   const POLL_INTERVAL_MS = 2500;
-  const MAX_CHARACTERS = 200;
+  const MAX_CHARACTERS = 150;
   const BUBBLE_DURATION_MS = 6000;
   const BUBBLE_TRUNCATE_LENGTH = 50;
   const IDLE_MIN_MS = 2500;
   const IDLE_MAX_MS = 6000;
   const WALK_SPEED_PCT_PER_SEC = 14; // room-diagonal percent per second
-  const IDLE_DESPAWN_MS = 2000; // leave town after 2s without chatting
   const EXIT_WALK_MS = 900; // time to run off-map
 
   const roomEl = document.getElementById("room");
@@ -66,7 +65,6 @@
     `;
 
     roomEl.appendChild(wrapper);
-    roomEmptyEl.hidden = true;
 
     const record = {
       el: wrapper,
@@ -80,6 +78,7 @@
     characters.set(from, record);
     scheduleWander(from);
     applyVerifiedFilter(record);
+    updateHud();
     return record;
   }
 
@@ -183,18 +182,16 @@
   });
 
   function pruneOldest() {
+    // No idle timeout: characters only leave when a new arrival pushes the
+    // town past MAX_CHARACTERS. Whoever's been in town longest without
+    // posting again (least-recently active) walks out to make room.
     if (characters.size <= MAX_CHARACTERS) return;
-    const now = Date.now();
-    // Prefer someone already idle; otherwise the least-recently active
     let pick = null;
     let pickTime = Infinity;
     for (const [id, record] of characters) {
       if (record.leaving) continue;
-      const idle = now - record.lastActive;
-      // weight idle people first
-      const score = record.lastActive - (idle >= IDLE_DESPAWN_MS * 0.6 ? 1e12 : 0);
-      if (score < pickTime) {
-        pickTime = score;
+      if (record.lastActive < pickTime) {
+        pickTime = record.lastActive;
         pick = id;
       }
     }
@@ -226,6 +223,7 @@
     if (instant) {
       record.el.remove();
       characters.delete(from);
+      updateHud();
       return;
     }
 
@@ -242,25 +240,18 @@
     record.el.style.left = `${exit.x}%`;
     record.el.style.top = `${exit.y}%`;
 
-    // remove from map tracking immediately so prune/idle won't double-fire
+    // remove from map tracking immediately so prune won't double-fire
     characters.delete(from);
+    updateHud();
     setTimeout(() => {
       record.el.remove();
     }, duration * 1000 + 50);
   }
 
-  function tickIdleDespawn() {
-    const now = Date.now();
-    for (const [id, record] of [...characters]) {
-      if (record.leaving) continue;
-      if (now - record.lastActive >= IDLE_DESPAWN_MS) {
-        despawn(id);
-      }
-    }
+  function updateHud() {
     roomEmptyEl.hidden = characters.size > 0;
     popCount.textContent = `${characters.size} character${characters.size === 1 ? "" : "s"}`;
   }
-
 
   function clearAllCharacters() {
     for (const from of [...characters.keys()]) despawn(from, { instant: true });
@@ -360,7 +351,7 @@
         sinceSeq = data.last_seq ?? sinceSeq;
       }
 
-      popCount.textContent = `${characters.size} character${characters.size === 1 ? "" : "s"}`;
+      updateHud();
       updateRate();
     } catch (err) {
       statusDot.className = "status-dot error";
@@ -371,6 +362,5 @@
   }
 
   setInterval(poll, POLL_INTERVAL_MS);
-  setInterval(tickIdleDespawn, 500);
   poll();
 })();

@@ -7,7 +7,7 @@ signed agent or plain nick — gets its own procedurally generated character
 that wanders around a small room. When they post, a speech bubble pops up
 over their head.
 
-Characters **leave the town** (run off-map) after **2 seconds** without a new message. The plaza is a stylized night skyline — not a grid.
+Characters **stick around** as long as the town has room — there's no idle timeout. Once the town hits **150 characters**, a new arrival makes the longest-standing character (the one who's gone longest without a fresh message) **walk off-map** to make room. The plaza is a stylized night skyline — not a grid.
 
 No accounts, no writes, no storage — this just reads the public room feed
 and turns it into something you'd actually want to watch.
@@ -31,9 +31,10 @@ and turns it into something you'd actually want to watch.
 - **Switch rooms anytime.** Type any room name in the top bar (`lapiece`,
   `lobby`, anything) and hit Go — the town repopulates from that room's
   feed.
-- **Auto-cleanup.** Caps at 24 concurrent characters — if the room's busy,
-  the least recently active character quietly leaves to make room for the
-  next arrival.
+- **Auto-cleanup, no idle timer.** Caps at 150 concurrent characters —
+  characters never leave just from sitting quietly. If the room's busy and
+  a new sender shows up past the cap, the least recently active character
+  walks out to make room for the next arrival.
 - **Raw feed included.** A collapsible text log underneath shows the same
   data in plain chat form, for anyone who wants to double-check what the
   town is dramatizing.
