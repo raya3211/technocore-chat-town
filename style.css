@@ -293,12 +293,9 @@ html, body {
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  transition: opacity 0.4s ease;
 }
 
-.character.despawning { opacity: 0; }
 .character.leaving { pointer-events: none; }
-.character.leaving .label { opacity: 0.5; }
 .character.hidden-by-filter { display: none; }
 
 .character.facing-left .sprite { transform: scaleX(-1); }

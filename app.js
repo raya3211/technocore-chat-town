@@ -224,8 +224,7 @@
     record.el.classList.remove("talking");
 
     if (instant) {
-      record.el.classList.add("despawning");
-      setTimeout(() => record.el.remove(), 350);
+      record.el.remove();
       characters.delete(from);
       return;
     }
@@ -238,10 +237,10 @@
 
     record.el.classList.add("walking", "leaving");
     record.el.classList.toggle("facing-left", exit.left);
-    record.el.style.transition = `left ${duration}s linear, top ${duration}s linear, opacity ${duration}s ease`;
+    // solid walk off-map — no fade
+    record.el.style.transition = `left ${duration}s linear, top ${duration}s linear`;
     record.el.style.left = `${exit.x}%`;
     record.el.style.top = `${exit.y}%`;
-    record.el.style.opacity = "0";
 
     // remove from map tracking immediately so prune/idle won't double-fire
     characters.delete(from);
