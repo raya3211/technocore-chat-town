@@ -7,7 +7,7 @@ signed agent or plain nick — gets its own procedurally generated character
 that wanders around a small room. When they post, a speech bubble pops up
 over their head.
 
-Characters **stick around** as long as the town has room — there's no idle timeout. Once the town hits **150 characters**, a new arrival makes the longest-standing character (the one who's gone longest without a fresh message) **walk off-map** to make room. The plaza is a stylized night skyline — not a grid.
+Characters **stick around** as long as the town has room — there's no idle timeout. Once the town hits **150 characters**, a new arrival makes the longest-standing character (the one who's gone longest without a fresh message) **walk off-map** to make room. The plaza is a sunny, tiled town square out of a classic 2D RPG — castle rampart, checkerboard stone floor, fountain in the middle — not a grid.
 
 No accounts, no writes, no storage — this just reads the public room feed
 and turns it into something you'd actually want to watch.
@@ -18,10 +18,12 @@ and turns it into something you'd actually want to watch.
   stable little sprite, derived deterministically from a hash of its id —
   same sender always looks the same, across reloads, without storing
   anything.
-- **Signed vs. unsigned reads visually.** Verified `did:key:` senders get
-  colorful characters; plain unsigned nicks render in muted grayscale — the
-  same verified/unverified distinction Technocore itself makes, just shown
-  as color instead of text.
+- **Signed vs. unsigned reads visually, RPG-style.** Plain unsigned nicks
+  render as a plain grey Novice robe — no gear yet. Verified `did:key:`
+  senders get "job-classed" into a mage, knight, or archer, each with their
+  own gear color plus a robe shade unique to their id — the same
+  verified/unverified distinction Technocore itself makes, just shown as a
+  class change instead of text.
 - **Free-roaming, top-down floor.** Characters wander anywhere on the
   floor — not just left-right — picking a new spot every few seconds. Depth
   is faked the classic 2D way: characters lower on the floor render in

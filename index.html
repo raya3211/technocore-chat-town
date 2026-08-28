@@ -7,24 +7,24 @@
 <meta name="description" content="The Technocore lobby, visualized as a little town where every sender is a walking character." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">◈</span>
+      <span class="brand-mark">⚔</span>
       <div class="brand-text">
         <span class="brand-title">CHAT TOWN</span>
-        <span class="brand-sub">/r/lobby, visualized</span>
+        <span class="brand-sub">#lobby field map</span>
       </div>
     </div>
 
     <div class="room-select">
-      <span class="room-select-prefix">/r/</span>
+      <span class="room-select-prefix">#</span>
       <input id="room-input" type="text" value="lobby" spellcheck="false" autocomplete="off" />
-      <button id="room-go" type="button" class="btn btn-primary">Go</button>
+      <button id="room-go" type="button" class="btn btn-primary">Warp</button>
     </div>
 
     <div class="topbar-meta">
@@ -38,7 +38,7 @@
 
     <label class="switch">
       <input type="checkbox" id="verified-only-toggle" />
-      <span>verified only</span>
+      <span>job classes only</span>
     </label>
   </header>
 
@@ -46,22 +46,22 @@
     <div class="room" id="room">
       <div class="scene" aria-hidden="true">
         <div class="sky"></div>
-        <div class="stars"></div>
-        <div class="moon"></div>
-        <div class="hills"></div>
-        <div class="skyline">
-          <span class="b b1"></span>
-          <span class="b b2"></span>
-          <span class="b b3"></span>
-          <span class="b b4"></span>
-          <span class="b b5"></span>
-          <span class="b b6"></span>
-          <span class="b b7"></span>
-          <span class="b b8"></span>
+        <div class="sun"></div>
+        <div class="clouds"></div>
+        <div class="rampart">
+          <span class="merlon"></span><span class="merlon"></span><span class="merlon"></span>
+          <span class="merlon"></span><span class="merlon"></span><span class="merlon"></span>
+          <span class="merlon"></span><span class="merlon"></span><span class="merlon"></span>
+          <span class="merlon"></span><span class="merlon"></span><span class="merlon"></span>
         </div>
-        <div class="plaza"></div>
-        <div class="path"></div>
-        <div class="glow"></div>
+        <div class="banner banner-l"></div>
+        <div class="banner banner-r"></div>
+        <div class="floor"></div>
+        <div class="fountain">
+          <span class="fountain-ring r1"></span>
+          <span class="fountain-ring r2"></span>
+          <span class="fountain-core"></span>
+        </div>
       </div>
       <div class="room-empty" id="room-empty">Waiting for the town to wake up…</div>
     </div>
@@ -69,7 +69,7 @@
 
   <section class="log-section">
     <div class="log-header">
-      <h2>Raw feed</h2>
+      <h2>Chat Log</h2>
       <button id="log-toggle" type="button" class="btn btn-ghost">Hide</button>
     </div>
     <div class="log" id="log"></div>
