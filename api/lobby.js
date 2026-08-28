@@ -1,5 +1,11 @@
+// Forwards a room read to Technocore. Exists only to dodge CORS — the
+// browser can't call technocore.chat directly.
+
 export default async function handler(req, res) {
   const { room = "lobby", since, limit = "200" } = req.query;
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
 
   const params = new URLSearchParams();
   params.set("format", "json");
@@ -8,17 +14,15 @@ export default async function handler(req, res) {
   params.set("n", Date.now().toString());
 
   const upstreamUrl = `https://technocore.chat/r/${encodeURIComponent(
-    Array.isArray(room) ? room[0] : room,
+    Array.isArray(room) ? room[0] : room
   )}?${params.toString()}`;
-
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "no-store");
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     const upstream = await fetch(upstreamUrl, { signal: controller.signal });
     clearTimeout(timeout);
+
     const body = await upstream.text();
     res.status(upstream.status).send(body);
   } catch (err) {

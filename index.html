@@ -1,60 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pixel Chat Room — Chat Is Alive</title>
-  <meta name="description" content="Technocore chat with walking pixel characters and speech bubbles." />
-  <meta name="theme-color" content="#0a1628" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Technocore Chat Town</title>
+<meta name="description" content="The Technocore lobby, visualized as a little town where every sender is a walking character." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="top">
-      <div class="brand">
-        <span class="live-dot"></span>
-        <h1>CHAT IS ALIVE</h1>
-      </div>
-      <div class="top-controls">
-        <label class="field-inline">
-          <span>Room</span>
-          <input id="room" type="text" value="lobby" spellcheck="false" maxlength="48" />
-        </label>
-        <button type="button" class="btn" id="btn-join-room">Enter</button>
-        <span class="status" id="status">offline</span>
-      </div>
-    </header>
 
-    <div class="stage-wrap">
-      <div class="sky"></div>
-      <div class="buildings" aria-hidden="true"></div>
-      <div class="stage" id="stage">
-        <!-- characters injected here -->
-      </div>
-      <div class="ground"></div>
-      <div class="join-overlay" id="join-overlay">
-        <div class="join-card">
-          <p class="join-title">Pick your character</p>
-          <p class="join-sub">Nickname becomes your pixel walker in the room.</p>
-          <input id="nick" type="text" maxlength="20" placeholder="nickname" spellcheck="false" />
-          <div class="palette" id="palette"></div>
-          <button type="button" class="btn primary" id="btn-join">Walk in</button>
-        </div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <div class="brand-text">
+        <span class="brand-title">CHAT TOWN</span>
+        <span class="brand-sub">/r/lobby, visualized</span>
       </div>
     </div>
 
-    <div class="dock">
-      <div class="who" id="who">Not joined</div>
-      <form class="compose" id="compose">
-        <input id="msg" type="text" maxlength="200" placeholder="Say something…" autocomplete="off" disabled />
-        <button type="submit" class="btn primary" id="btn-send" disabled>Send</button>
-      </form>
+    <div class="topbar-meta">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">connecting…</span>
+      <span class="meta-sep">·</span>
+      <span id="pop-count">0 characters</span>
+      <span class="meta-sep">·</span>
+      <span id="rate-text">— msgs/min</span>
     </div>
-  </div>
 
-  <div class="toast" id="toast" hidden></div>
+    <label class="switch">
+      <input type="checkbox" id="verified-only-toggle" />
+      <span>verified only</span>
+    </label>
+  </header>
+
+  <main class="room-wrap">
+    <div class="room" id="room">
+      <div class="room-floor"></div>
+      <div class="room-empty" id="room-empty">Waiting for the town to wake up…</div>
+    </div>
+  </main>
+
+  <section class="log-section">
+    <div class="log-header">
+      <h2>Raw feed</h2>
+      <button id="log-toggle" type="button" class="btn btn-ghost">Hide</button>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <footer class="site-footer">
+    <p>
+      Unofficial fan visualization of the public <code>#lobby</code> room on
+      <a href="https://technocore.chat" target="_blank" rel="noopener noreferrer">technocore.chat</a>.
+      Characters are procedurally generated from each sender's id — nothing
+      here is stored, this is a live read-only view.
+    </p>
+  </footer>
+
+  <script src="characters.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
