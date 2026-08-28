@@ -1,11 +1,13 @@
 (() => {
   const POLL_INTERVAL_MS = 2500;
-  const MAX_CHARACTERS = 24;
+  const MAX_CHARACTERS = 40;
   const BUBBLE_DURATION_MS = 6000;
   const BUBBLE_TRUNCATE_LENGTH = 50;
   const IDLE_MIN_MS = 2500;
   const IDLE_MAX_MS = 6000;
   const WALK_SPEED_PCT_PER_SEC = 14; // room-diagonal percent per second
+  const IDLE_DESPAWN_MS = 5000; // leave town after 5s without chatting
+  const EXIT_WALK_MS = 900; // time to run off-map
 
   const roomEl = document.getElementById("room");
   const roomEmptyEl = document.getElementById("room-empty");
@@ -182,29 +184,87 @@
 
   function pruneOldest() {
     if (characters.size <= MAX_CHARACTERS) return;
-    let oldestId = null;
-    let oldestTime = Infinity;
+    const now = Date.now();
+    // Prefer someone already idle; otherwise the least-recently active
+    let pick = null;
+    let pickTime = Infinity;
     for (const [id, record] of characters) {
-      if (record.lastActive < oldestTime) {
-        oldestTime = record.lastActive;
-        oldestId = id;
+      if (record.leaving) continue;
+      const idle = now - record.lastActive;
+      // weight idle people first
+      const score = record.lastActive - (idle >= IDLE_DESPAWN_MS * 0.6 ? 1e12 : 0);
+      if (score < pickTime) {
+        pickTime = score;
+        pick = id;
       }
     }
-    if (oldestId) despawn(oldestId);
+    if (pick) despawn(pick);
   }
 
-  function despawn(from) {
+  function exitPoint(record) {
+    // run toward nearest horizontal edge (or random side)
+    const goLeft = record.x < 50 ? true : record.x > 50 ? false : Math.random() < 0.5;
+    return {
+      x: goLeft ? -8 : 108,
+      y: Math.max(12, Math.min(88, record.y + (Math.random() * 16 - 8))),
+      left: goLeft,
+    };
+  }
+
+  function despawn(from, { instant = false } = {}) {
     const record = characters.get(from);
-    if (!record) return;
+    if (!record || record.leaving) return;
+    record.leaving = true;
     if (record.wanderTimer) clearTimeout(record.wanderTimer);
     if (record.bubbleTimer) clearTimeout(record.bubbleTimer);
-    record.el.classList.add("despawning");
-    setTimeout(() => record.el.remove(), 400);
+
+    // hide bubble while exiting
+    const bubbleEl = record.el.querySelector(".bubble");
+    if (bubbleEl) bubbleEl.hidden = true;
+    record.el.classList.remove("talking");
+
+    if (instant) {
+      record.el.classList.add("despawning");
+      setTimeout(() => record.el.remove(), 350);
+      characters.delete(from);
+      return;
+    }
+
+    const exit = exitPoint(record);
+    const dx = exit.x - record.x;
+    const dy = exit.y - record.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const duration = Math.max(0.55, Math.min(1.2, distance / (WALK_SPEED_PCT_PER_SEC * 1.35)));
+
+    record.el.classList.add("walking", "leaving");
+    record.el.classList.toggle("facing-left", exit.left);
+    record.el.style.transition = `left ${duration}s linear, top ${duration}s linear, opacity ${duration}s ease`;
+    record.el.style.left = `${exit.x}%`;
+    record.el.style.top = `${exit.y}%`;
+    record.el.style.opacity = "0";
+
+    // remove from map tracking immediately so prune/idle won't double-fire
     characters.delete(from);
+    setTimeout(() => {
+      record.el.remove();
+    }, duration * 1000 + 50);
   }
 
+  function tickIdleDespawn() {
+    const now = Date.now();
+    for (const [id, record] of [...characters]) {
+      if (record.leaving) continue;
+      if (now - record.lastActive >= IDLE_DESPAWN_MS) {
+        despawn(id);
+      }
+    }
+    roomEmptyEl.hidden = characters.size > 0;
+    popCount.textContent = `${characters.size} character${characters.size === 1 ? "" : "s"}`;
+  }
+
+
   function clearAllCharacters() {
-    for (const from of [...characters.keys()]) despawn(from);
+    for (const from of [...characters.keys()]) despawn(from, { instant: true });
   }
 
   function applyVerifiedFilter(record) {
@@ -312,5 +372,6 @@
   }
 
   setInterval(poll, POLL_INTERVAL_MS);
+  setInterval(tickIdleDespawn, 500);
   poll();
 })();
