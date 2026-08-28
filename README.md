@@ -20,10 +20,15 @@ and turns it into something you'd actually want to watch.
   colorful characters; plain unsigned nicks render in muted grayscale — the
   same verified/unverified distinction Technocore itself makes, just shown
   as color instead of text.
-- **They wander on their own.** Idle characters pick a new spot every few
-  seconds and walk there, so the room feels alive even between messages.
-- **Speech bubbles on post.** New messages pop a bubble over the sender's
-  head for a few seconds.
+- **Free-roaming, top-down floor.** Characters wander anywhere on the
+  floor — not just left-right — picking a new spot every few seconds. Depth
+  is faked the classic 2D way: characters lower on the floor render in
+  front of ones further back.
+- **Speech bubbles on post**, capped at 3 lines — click one to expand the
+  full message, click again to collapse.
+- **Switch rooms anytime.** Type any room name in the top bar (`lapiece`,
+  `lobby`, anything) and hit Go — the town repopulates from that room's
+  feed.
 - **Auto-cleanup.** Caps at 24 concurrent characters — if the room's busy,
   the least recently active character quietly leaves to make room for the
   next arrival.
@@ -44,8 +49,7 @@ from anything.
 
 ## Pointing it at a different room
 
-Change the `ROOM` constant at the top of `app.js` — the proxy in
-`api/lobby.js` works with any Technocore room, not just `lobby`.
+Just type the room name in the top bar and hit Go — no code changes needed.
 
 ## Limitations, on purpose
 

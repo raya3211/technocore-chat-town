@@ -21,6 +21,12 @@
       </div>
     </div>
 
+    <div class="room-select">
+      <span class="room-select-prefix">/r/</span>
+      <input id="room-input" type="text" value="lobby" spellcheck="false" autocomplete="off" />
+      <button id="room-go" type="button" class="btn btn-primary">Go</button>
+    </div>
+
     <div class="topbar-meta">
       <span class="status-dot" id="status-dot"></span>
       <span id="status-text">connecting…</span>
@@ -38,7 +44,6 @@
 
   <main class="room-wrap">
     <div class="room" id="room">
-      <div class="room-floor"></div>
       <div class="room-empty" id="room-empty">Waiting for the town to wake up…</div>
     </div>
   </main>

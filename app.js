@@ -1,12 +1,11 @@
 (() => {
-  const ROOM = "lobby";
   const POLL_INTERVAL_MS = 2500;
   const MAX_CHARACTERS = 24;
   const BUBBLE_DURATION_MS = 6000;
-  const BUBBLE_TRUNCATE_LENGTH = 60;
+  const BUBBLE_TRUNCATE_LENGTH = 50;
   const IDLE_MIN_MS = 2500;
   const IDLE_MAX_MS = 6000;
-  const WALK_SPEED_PCT_PER_SEC = 12; // room-width percent per second
+  const WALK_SPEED_PCT_PER_SEC = 14; // room-diagonal percent per second
 
   const roomEl = document.getElementById("room");
   const roomEmptyEl = document.getElementById("room-empty");
@@ -18,13 +17,15 @@
   const logEl = document.getElementById("log");
   const logToggle = document.getElementById("log-toggle");
   const logSection = document.querySelector(".log-section");
+  const roomInput = document.getElementById("room-input");
+  const roomGoBtn = document.getElementById("room-go");
 
-  const { buildAvatarSvg, randomX, ROOM_MIN_PCT, ROOM_MAX_PCT } =
-    window.TechnocoreCharacters;
+  const { buildAvatarSvg, randomX, randomY } = window.TechnocoreCharacters;
 
-  /** @type {Map<string, { el: HTMLElement, verified: boolean, x: number, lastActive: number, wanderTimer: number|null, bubbleTimer: number|null }>} */
+  /** @type {Map<string, { el: HTMLElement, verified: boolean, x: number, y: number, lastActive: number, wanderTimer: number|null, bubbleTimer: number|null }>} */
   const characters = new Map();
 
+  let currentRoom = roomInput.value.trim() || "lobby";
   let sinceSeq = null;
   let inFlight = false;
   let recentTimestamps = [];
@@ -47,10 +48,13 @@
   function spawnCharacter(from) {
     const verified = from.startsWith("did:key:");
     const x = randomX();
+    const y = randomY();
 
     const wrapper = document.createElement("div");
     wrapper.className = "character";
     wrapper.style.left = `${x}%`;
+    wrapper.style.top = `${y}%`;
+    wrapper.style.zIndex = String(Math.round(y * 10));
     wrapper.dataset.id = from;
 
     wrapper.innerHTML = `
@@ -59,11 +63,6 @@
       <div class="label">${escapeHtml(shortLabel(from))}</div>
     `;
 
-    wrapper.addEventListener("click", (e) => {
-      // clicks on the bubble itself are handled separately (expand/collapse)
-      if (e.target.closest(".bubble")) return;
-    });
-
     roomEl.appendChild(wrapper);
     roomEmptyEl.hidden = true;
 
@@ -71,6 +70,7 @@
       el: wrapper,
       verified,
       x,
+      y,
       lastActive: Date.now(),
       wanderTimer: null,
       bubbleTimer: null,
@@ -91,22 +91,27 @@
     if (record.wanderTimer) clearTimeout(record.wanderTimer);
 
     const delay = IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS);
-    record.wanderTimer = setTimeout(() => wanderTo(from, randomX()), delay);
+    record.wanderTimer = setTimeout(() => wanderTo(from, randomX(), randomY()), delay);
   }
 
-  function wanderTo(from, targetX) {
+  function wanderTo(from, targetX, targetY) {
     const record = characters.get(from);
     if (!record) return;
 
-    const distance = Math.abs(targetX - record.x);
+    const dx = targetX - record.x;
+    const dy = targetY - record.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
     const duration = Math.max(0.4, distance / WALK_SPEED_PCT_PER_SEC);
-    const facingLeft = targetX < record.x;
+    const facingLeft = dx < 0;
 
-    record.el.style.transition = `left ${duration}s linear`;
+    record.el.style.transition = `left ${duration}s linear, top ${duration}s linear`;
     record.el.style.left = `${targetX}%`;
+    record.el.style.top = `${targetY}%`;
+    record.el.style.zIndex = String(Math.round(targetY * 10));
     record.el.classList.add("walking");
     record.el.classList.toggle("facing-left", facingLeft);
     record.x = targetX;
+    record.y = targetY;
 
     setTimeout(() => {
       record.el.classList.remove("walking");
@@ -198,6 +203,10 @@
     characters.delete(from);
   }
 
+  function clearAllCharacters() {
+    for (const from of [...characters.keys()]) despawn(from);
+  }
+
   function applyVerifiedFilter(record) {
     record.el.classList.toggle("hidden-by-filter", verifiedOnly && !record.verified);
   }
@@ -205,6 +214,28 @@
   verifiedOnlyToggle.addEventListener("change", () => {
     verifiedOnly = verifiedOnlyToggle.checked;
     for (const record of characters.values()) applyVerifiedFilter(record);
+  });
+
+  // ---------- room switching ----------
+
+  function switchRoom(next) {
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === currentRoom) return;
+    currentRoom = trimmed;
+    roomInput.value = trimmed;
+    clearAllCharacters();
+    logEl.innerHTML = "";
+    sinceSeq = null;
+    recentTimestamps = [];
+    roomEmptyEl.hidden = false;
+    roomEmptyEl.textContent = `Waiting for #${trimmed} to wake up…`;
+    statusText.textContent = "connecting…";
+    poll();
+  }
+
+  roomGoBtn.addEventListener("click", () => switchRoom(roomInput.value));
+  roomInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") switchRoom(roomInput.value);
   });
 
   // ---------- text log ----------
@@ -239,7 +270,7 @@
     if (inFlight) return;
     inFlight = true;
 
-    const params = new URLSearchParams({ room: ROOM, limit: "200" });
+    const params = new URLSearchParams({ room: currentRoom, limit: "200" });
     if (sinceSeq !== null) params.set("since", String(sinceSeq));
 
     try {

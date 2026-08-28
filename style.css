@@ -52,6 +52,28 @@ html, body {
 .brand-title { font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.05em; }
 .brand-sub { font-size: 10px; color: var(--text-dim); }
 
+.room-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.room-select-prefix { color: var(--text-dimmer); }
+
+#room-input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 6px 9px;
+  border-radius: 5px;
+  width: 110px;
+  outline: none;
+}
+#room-input:focus { border-color: var(--verified); }
+
 .topbar-meta {
   display: flex;
   align-items: center;
@@ -78,21 +100,17 @@ html, body {
 
 .room {
   position: relative;
-  height: 40vh;
-  min-height: 280px;
-  max-height: 420px;
+  height: 55vh;
+  min-height: 360px;
+  max-height: 560px;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background: linear-gradient(180deg, var(--room-sky-top) 0%, var(--room-sky-bottom) 70%);
-}
-
-.room-floor {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 22%;
-  background: linear-gradient(180deg, var(--room-floor) 0%, #10131b 100%);
-  border-top: 1px solid var(--border-soft);
+  background-color: var(--room-floor);
+  background-image:
+    linear-gradient(rgba(79, 209, 197, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 209, 197, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
 .room-empty {
@@ -109,8 +127,7 @@ html, body {
 
 .character {
   position: absolute;
-  bottom: 18%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -164,7 +181,8 @@ html, body {
   bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  max-width: 130px;
+  width: max-content;
+  max-width: 140px;
   min-width: 40px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -173,10 +191,17 @@ html, body {
   line-height: 1.4;
   padding: 6px 9px;
   border-radius: 8px;
-  text-align: center;
+  text-align: left;
   word-break: break-word;
+  white-space: normal;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
   animation: bubble-in 0.15s ease;
+  /* hard cap: never more than 3 lines tall, no matter what */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  max-height: 4.4em;
 }
 
 .bubble.truncatable {
@@ -184,10 +209,12 @@ html, body {
 }
 
 .bubble.expanded {
-  max-width: 240px;
-  max-height: 140px;
+  display: block;
+  -webkit-line-clamp: unset;
+  max-width: 220px;
+  max-height: 130px;
   overflow-y: auto;
-  text-align: left;
+  overflow-x: hidden;
   cursor: pointer;
 }
 

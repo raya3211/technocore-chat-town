@@ -69,16 +69,25 @@ function buildAvatarSvg(id, verified) {
   `;
 }
 
-const ROOM_MIN_PCT = 6;
-const ROOM_MAX_PCT = 92;
+const ROOM_MIN_X_PCT = 6;
+const ROOM_MAX_X_PCT = 92;
+const ROOM_MIN_Y_PCT = 16;
+const ROOM_MAX_Y_PCT = 86;
 
 function randomX() {
-  return ROOM_MIN_PCT + Math.random() * (ROOM_MAX_PCT - ROOM_MIN_PCT);
+  return ROOM_MIN_X_PCT + Math.random() * (ROOM_MAX_X_PCT - ROOM_MIN_X_PCT);
+}
+
+function randomY() {
+  return ROOM_MIN_Y_PCT + Math.random() * (ROOM_MAX_Y_PCT - ROOM_MIN_Y_PCT);
 }
 
 window.TechnocoreCharacters = {
   buildAvatarSvg,
   randomX,
-  ROOM_MIN_PCT,
-  ROOM_MAX_PCT,
+  randomY,
+  ROOM_MIN_X_PCT,
+  ROOM_MAX_X_PCT,
+  ROOM_MIN_Y_PCT,
+  ROOM_MAX_Y_PCT,
 };
